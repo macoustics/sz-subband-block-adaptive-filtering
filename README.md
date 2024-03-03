@@ -1,6 +1,8 @@
 # sz-subband-block-adaptive-filtering
 Code following the publication of associated paper
 
+Note that the code is currently being refactored, which means that many of the scripts used for running the tests are broken at the moment. The core functions implementing the filterbank and adaptive processing will not change, but the scripts used to generate the results will. This is to limit the amount of manual work required by the user to reproduce the results.
+
 The code presents both MATLAB and C++ implementations of subband block adaptive filters, implemented as object oriented programming.
 The adaptive filtering class stores its own state and inputs / outputs buffers of hopSize samples (50% of the FFT size) corresponding to the used overlap-save design used.
 The conversion to and from subband signals is performed using the analysis and synthesis filterbank classes. The input (output) to the analysis (synthesis) filterbank is an integer multiple N of decimationFactor (numberOfSubbands/2) samples, while the output (input) of the analysis (synthesis) filterbank is an integer multiple N of numberOfSubband/2 (decimationFactor) samples.
