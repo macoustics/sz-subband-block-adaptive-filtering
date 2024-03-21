@@ -6,11 +6,12 @@
 
 using dataType = double;
 
-const size_t decimationFactor {5};
-const size_t numberOfSubbands {8};
-const size_t prototypeFilterLength {112};
-const size_t hopSize {256};
-const size_t numberOfBuffers {937};
+
+const size_t decimationFactor {MY_DECIMATION_FACTOR};
+const size_t numberOfSubbands {MY_NUMBER_OF_SUBBANDS};
+const size_t prototypeFilterLength {MY_PROTOTYPE_FILTER_LENGTH};
+const size_t hopSize {MY_HOP_SIZE};
+const size_t numberOfBuffers {MY_NUMBER_OF_BUFFERS};
 
 
 using inBufferType = std::array<dataType, decimationFactor*hopSize>;

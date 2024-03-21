@@ -6,12 +6,12 @@
 
 using dataType = double;
 using cDataType = std::complex<dataType>;
-const size_t filterLength {300};
-const size_t numberOfLoudspeakers {11};
-const size_t numberOfMicrophones {3};
-const size_t numberOfBuffers {1406}; // 
-const size_t fftLength {2048};
-const size_t hopSize {1024};
+const size_t filterLength {MY_FILTER_LENGTH};
+const size_t numberOfLoudspeakers {MY_NUMBER_OF_LOUDSPEAKERS};
+const size_t numberOfMicrophones {MY_NUMBER_OF_MICROPHONES};
+const size_t numberOfBuffers {MY_NUMBER_OF_BUFFERS}; // 
+const size_t fftLength {MY_FFT_LENGTH};
+const size_t hopSize {MY_HOP_SIZE};
 
 
 using inBufferType = std::array<dataType, hopSize>;
