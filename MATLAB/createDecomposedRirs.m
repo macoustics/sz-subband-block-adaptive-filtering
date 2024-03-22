@@ -33,3 +33,14 @@ for cIdx = 1:length(numberOfSubbandChannelsList)
 end
 
 %% Create decomposed RIRs for Fig. 15
+load('MiscHelperFunctions\filterbankSettingsVsPrototypeFilterLength.mat','filterbankSettings');
+for oIdx = 1:size(filterbankSettings,1)
+    for lIdx = 1:size(filterbankSettings,2)
+        numberOfChannels = filterbankSettings{oIdx,lIdx}.numberOfChannels;
+        decimationFactor = filterbankSettings{oIdx,lIdx}.decimationFactor;
+        prototypeFilterLength = filterbankSettings{oIdx,lIdx}.filterLength;
+        [prototypeFilter, analysisFilters] = DesignPolyphaseGdftFilterbank(gamma, tau, numberOfChannels, prototypeFilterLength, decimationFactor, plotFlag);
+        [decomposedRirs] = DecomposeRirs(analysisFilters, decimationFactor, IRs);
+        save([outputFolder 'Simulation_K=' int2str(numberOfChannels) '_D=' int2str(decimationFactor) '_Lp=' int2str(prototypeFilterLength)], 'decimationFactor', 'decomposedRirs', 'IRs', 'prototypeFilter');
+    end
+end

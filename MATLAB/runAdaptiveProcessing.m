@@ -1,12 +1,13 @@
-function runAdaptiveProcessing(task, algorithm, numberOfChannels, decimationFactor, prototypeFilterLength, musicFlag, setupEnvironment, evaluationEnvironment, numberOfRepeats, maxIterations, switchZonesFlag)
+function [varargout] = runAdaptiveProcessing(task, algorithm, numberOfChannels, decimationFactor, prototypeFilterLength, musicFlag, setupEnvironment, evaluationEnvironment, numberOfRepeats, maxIterations, switchZonesFlag, varargin)
 
 numberOfCrossoverBands = 3;
-addpath('AdaptiveFilteringTests/Mex/')
-addpath('AdaptiveFilteringTests/MexParallel/')
-addpath('AdaptiveFilteringTests/MexReal/')
-addpath('AdaptiveFilteringTests/AnalysisFilterBankMex/')
-addpath('AdaptiveFilteringTests/')
+addpath('AdaptiveFilteringTests\Mex\')
+addpath('AdaptiveFilteringTests\MexParallel\')
+addpath('AdaptiveFilteringTests\MexReal\')
+addpath('AdaptiveFilteringTests\AnalysisFilterBankMex\')
+addpath('AdaptiveFilteringTests\')
 addpath('MiscHelperFunctions\')
+
 
 %% Choose control algorithm
 switch algorithm
@@ -43,7 +44,7 @@ end
 switch task
     case 'speedTest'
         if ~mexFlag
-            error('The speed tests expects to be run using the compiled mex files.');
+            error('The speed tests expect to be run using the compiled mex files.');
         end
     case 'plotMisalignment'
         if mexFlag
@@ -56,14 +57,17 @@ switch task
     case 'plotTimeContrast'
     case 'plotPressureSpectra'
 
-    case 'plotPeaq'
+    case 'calculatePeaq'
     otherwise
         error('Selected task is not an option')
 end
 
 %% Preproccess input signal(s)
 if musicFlag
-    [inSigA,fs] = audioread('MiscHelperFunctions/Daft Punk - Give Life Back To Music_48000kHz_mono.wav');
+    if ~exist('MiscHelperFunctions\music.wav','file')
+        error('No music signal supplied. Please place a music signal in MiscHelperFunctions/music.wav')
+    end
+    [inSigA,fs] = audioread('MiscHelperFunctions/music.wav');
     inSigA = inSigA(31*fs:end);
     sigLen = 30*fs;
     inSigA = inSigA(1:sigLen);
@@ -84,26 +88,39 @@ lowFreq{3} = 4000;
 highFreq{1} = 1500;
 highFreq{2} = 4000;
 highFreq{3} = 10000;
-[sosx, ~, ~, ~] = linkwitzrileyhpc([100, 1500, 4000, 10000], fs, 8);
+load('MiscHelperFunctions\crossoverNetwork.mat','sosx');
 if ~strcmp(evaluationEnvironment, 'simulation')
+    load('MiscHelperFunctions\parametricEqualization.mat','Bw','Aw','Bm1','Am1','Bm2','Am2','Bt','At');
     for i = 1:numberOfCrossoverBands
         inputSignalA{i} = sosfilt(sosx{i+1},inSigA);
         inputSignalB{i} = sosfilt(sosx{i+1},inSigB);
         if i == 1
             wGain = 10^(-1/20);
-            [Bw,Aw] = biquad(1500,4,1,11,fs);
+%           Apply biquad with center frequency 1500 Hz
+%           Gain: 4 dB
+%           Q: 1
+%           Type: High shelving filter
             inputSignalA{i} = filter(Bw,Aw,inputSignalA{i}) * wGain;
             inputSignalB{i} = filter(Bw,Aw,inputSignalB{i}) * wGain;
         elseif i == 2
-            [Bm1,Am1] = biquad(2700,-5, 2, 9, fs);
-            [Bm2,Am2] = biquad(2200,4, 2, 9, fs);
+%           Apply biquad with center frequency 2700 Hz
+%           Gain: -5 dB
+%           Quality factor: 2
+%           Type: Peak/Dip
             inputSignalA{i} = filter(Bm1,Am1,inputSignalA{i});
             inputSignalB{i} = filter(Bm1,Am1,inputSignalB{i});
+%           Apply biquad with center frequency 2200 Hz
+%           Gain: 4 dB
+%           Quality factor: 2
+%           Type: Peak/Dip
             inputSignalA{i} = filter(Bm2,Am2,inputSignalA{i});
             inputSignalB{i} = filter(Bm2,Am2,inputSignalB{i});
         else
             tGain = 10^(6/20);
-            [Bt,At] = biquad(2500,-6, 1/sqrt(2), 10, fs);
+%           Apply biquad with center frequency 2500 Hz
+%           Gain: -6 dB
+%           Quality factor: 1/sqrt(2)
+%           Type: Low shelving filter
             inputSignalA{i} = filter(Bt,At,inputSignalA{i}) * tGain;
             inputSignalB{i} = filter(Bt,At,inputSignalB{i}) * tGain;
         end
@@ -157,6 +174,7 @@ for bandIdx = 1:numberOfCrossoverBands
         firTaps = ceil(firTaps/decimationFactor);
         modellingDelay = ceil(modellingDelay/decimationFactor);
 
+        disp(['Determining subband signals for step-size computation. Loudspeaker type idx = ' int2str(bandIdx) '/3.'])
         if mexFlag
             varStr1 = ['testAnalysisFilterbankSpeed_K' int2str(numberOfChannels) '_D' int2str(decimationFactor) '_Lp' int2str(prototypeFilterLength)];
             paramStr = ['(prototypeFilter, inputSignalA{' int2str(bandIdx) '});'];
@@ -172,12 +190,15 @@ for bandIdx = 1:numberOfCrossoverBands
             end
         end
         subbandSignalLength = size(analyzedSignals,2);
+        disp('Subband signals determined.')
 
         firstTimeThrough = true;
         for cIdx = 1:numberOfChannels/2
             zerosSignal = zeros(size(analyzedSignals,2),1);
             if(gainFactors{bandIdx}(cIdx))
+                disp(['Determining max step-size for subband idx = ' int2str(cIdx) '/' num2str(numberOfChannels/2) ' | loudspeaker type idx = ' int2str(bandIdx) '/3'])
                 [fftSize, brightRir, darkRir, targetFilterSpectra, stepRange, regParameter, signalEpsilon,  wiener1, wiener2] = prepareInputsForLeakyNlms(analyzedSignals(cIdx,:).', zerosSignal, decomposedRirs{bandIdx}(:,:,:,cIdx), firTaps, sourceReferenceIdx, zoneAIdx, zoneBIdx, modellingDelay);
+                disp(['Max step-size determined.'])
                 if firstTimeThrough
                     firstTimeThrough = false;
                     % Initialize structures for calculating the subband
@@ -203,7 +224,7 @@ for bandIdx = 1:numberOfCrossoverBands
                 brightRirArray(:,:,:,cIdx) = brightRir;
                 darkRirArray(:,:,:,cIdx) = darkRir;
                 targetFilterSpectraArray(:,:,cIdx) = targetFilterSpectra;
-                stepRangeArray(:,cIdx) = stepRange
+                stepRangeArray(:,cIdx) = stepRange;
                 regParameterArray(cIdx) = regParameter;
                 signalEpsilonArray(cIdx) = signalEpsilon;
                 if ~mexFlag
@@ -230,7 +251,7 @@ for bandIdx = 1:numberOfCrossoverBands
                     varStr2 = '_src7';
             end
             for repeatIdx = 1:numberOfRepeats
-                tic
+                disp(['Performing adaptive processing for loudspeaker type idx = ' int2str(bandIdx) '/3.'])
                 [fullMexLoudspeakerSignal, durationInNanoseconds] = eval([varStr1 varStr2 paramStr]);
                 disp(['Mex computations took ' num2str(durationInNanoseconds*1e-9,'%.2f') ' s'])
                 duration{bandIdx}(repeatIdx) = durationInNanoseconds*1e-9;
@@ -243,6 +264,7 @@ for bandIdx = 1:numberOfCrossoverBands
                 tmpAdaptiveBeamformer = leakyNlmsAdaptiveBeamformer(fftSize, firTaps, brightRirArray(:,:,:,cIdx), darkRirArray(:,:,:,cIdx), targetFilterSpectraArray(:,:,cIdx), stepRangeArray(:,cIdx), maxIterations, regParameterArray(cIdx), signalEpsilonArray(cIdx));
                 analysisSignal = analyzedSignals(cIdx,:).';
                 if gainFactors{bandIdx}(cIdx) 
+                    disp(['Performing adaptive processing for subband idx = ' int2str(cIdx) '/' int2str(numberOfChannels/2) ' | loudspeaker type idx = ' int2str(bandIdx) '/3.'])
                     tic
                     for i = 1:numberOfBlocks
                         if i == floor(numberOfBlocks/2)
@@ -256,7 +278,7 @@ for bandIdx = 1:numberOfCrossoverBands
                         loudspeakerSubbandSignal(cIdx,idx,:) = tmpSamples;
                         misalignment{bandIdx}(i, cIdx) = norm(tmpWiener-tmpAdaptiveBeamformer.getFilterSpectra(),'fro')/norm(tmpWiener,'fro');
                     end
-                    disp(['Matlab OO took ' num2str(toc,'%.2f') ' s'])
+                    disp(['Matlab OO computations took ' num2str(toc,'%.2f') ' s'])
                 end
                 if cIdx == numberOfChannels/2
                     numberOfBlocks = size(loudspeakerSubbandSignal,2);
@@ -277,7 +299,9 @@ for bandIdx = 1:numberOfCrossoverBands
         
         % Prepare inputs for the adaptive processing
         zerosSignal = zeros(length(inputSignalA{bandIdx}),1);
+        disp(['Determining max step-size for loudspeaker type idx = ' int2str(bandIdx) '/3'])
         [fftSize, brightRir, darkRir, targetFilterSpectra, stepRange, regParameter, signalEpsilon,  wiener1, wiener2] = prepareInputsForLeakyNlms(inputSignalA{bandIdx}, zerosSignal, IRs{bandIdx}(:,:,:), firTaps, sourceReferenceIdx, zoneAIdx, zoneBIdx, modellingDelay);
+        disp(['Max step-size determined.'])
         hopSize = fftSize/2;
         numberOfBlocks = floor(sigLen/hopSize);
 
@@ -294,9 +318,9 @@ for bandIdx = 1:numberOfCrossoverBands
                     varStr2 = '_src7';
             end
             for repeatIdx = 1:numberOfRepeats
-                tic
+                disp(['Performing adaptive processing for loudspeaker type idx = ' int2str(bandIdx) '/3.'])
                 [fullMexLoudspeakerSignal, durationInNanoseconds] = eval([varStr1 varStr2 paramStr]);
-                disp(['Matlab duration is ' num2str(toc,'%.2f') ' s. Mex computations took ' num2str(durationInNanoseconds*1e-9,'%.2f') ' s'])
+                disp(['Mex computations took ' num2str(durationInNanoseconds*1e-9,'%.2f') ' s'])
                 duration{bandIdx}(repeatIdx) = durationInNanoseconds*1e-9;
                 tmpLoudspeakerSignals{bandIdx} = fullMexLoudspeakerSignal;
             end
@@ -306,6 +330,7 @@ for bandIdx = 1:numberOfCrossoverBands
             misalignment{bandIdx} = zeros(numberOfBlocks,1);
             tmpWiener = wiener1;
             analysisSignal = inputSignalA{bandIdx};
+            disp(['Performing adaptive processing for loudspeaker type idx = ' int2str(bandIdx) '/3.'])
             tic
             for i = 1:numberOfBlocks
                 if i == floor(numberOfBlocks/2)
@@ -319,7 +344,7 @@ for bandIdx = 1:numberOfCrossoverBands
                 loudspeakerSignal(idx,:) = tmpSamples;
                 misalignment{bandIdx}(i) = norm(tmpWiener-tmpAdaptiveBeamformer.getFilterSpectra(),'fro')/norm(tmpWiener,'fro');
             end
-            disp(['Matlab OO took ' num2str(toc,'%.2f') ' s'])
+            disp(['Matlab OO computations took ' num2str(toc,'%.2f') ' s'])
             tmpLoudspeakerSignals{bandIdx} = loudspeakerSignal;
         end
     end
@@ -441,21 +466,13 @@ switch task
         end
         PlotPressureSpectra(IRs, tmpLoudspeakerSignals, zoneAIdx, zoneBIdx);
 
-    case 'plotPeaq'
-        qualityList;
+    case 'calculatePeaq'
         ReferenceSignal = zeros(length(inputSignalA{1}),1);
         for idx = 1:length(inputSignalA)
             ReferenceSignal = ReferenceSignal + inputSignalA{idx};
         end
-        Pressure = PredictPressure(tmpLoudspeakerSignals, IRs, round(mean(ZoneAIdx)));
-        [~, irDelay] = max(abs(IRs{3}(:,round(mean(ZoneAIdx)),4)));
-        filterbankDelay = PrototypeFilterLength-1;
-        
-        if isnan(filterbankSettings{oversamplingIdx,filterbankIdx}.latency)
-            Latency = 1;
-        else
-            Latency = filterbankSettings{oversamplingIdx,filterbankIdx}.latency;
-        end
+        Pressure = PredictPressure(tmpLoudspeakerSignals, IRs, round(mean(zoneAIdx)));        
+        Latency = varargin{1};
         
         ReferenceSignal = ReferenceSignal/sqrt(mean(ReferenceSignal.^2));
         Pressure = Pressure(Latency:end-fs)/sqrt(mean(Pressure(Latency:end-fs).^2));
@@ -465,19 +482,11 @@ switch task
         ReferenceSignal = ReferenceSignal/Scale;
         Pressure = Pressure / Scale;
         
-%         figure
-%         plot(ReferenceSignal);
-%         hold on; grid on
-%         plot(Pressure);
-%         legend('Reference','Pressure')
-%         xlabel('Time [samples]'); ylabel('Magnitude')
-        
         audiowrite('ref.wav',ReferenceSignal(3*fs:end),fs);
         audiowrite('test.wav',Pressure(3*fs:end),fs);
         
-        [PeaqScore, MOV] = PQevalAudio_fn('ref.wav', 'test.wav');
-        filterbankSettings{oversamplingIdx, filterbankIdx}.peaqScore = PeaqScore;
-
+        [PeaqScore, ~] = PQevalAudio_fn('ref.wav', 'test.wav');
+        varargout{1} = PeaqScore;
     otherwise
         error('Specified task not recognized as a valid post-processing option')
 end
