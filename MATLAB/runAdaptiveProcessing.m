@@ -450,8 +450,8 @@ switch task
                 IRs{2} = tmpIRs(:,:,subTwIdx);
                 IRs{3} = tmpIRs(:,:,twIdx);
             case 'room'
-                load('TransferFunctions/roomEvaluationMeasurementsZoneA.mat');
-                load('TransferFunctions/roomEvaluationMeasurementsZoneB.mat');
+                load('TransferFunctions/roomEvaluationMeasurementsZoneASingle.mat');
+                load('TransferFunctions/roomEvaluationMeasurementsZoneBSingle.mat');
                 tmpIRs = cat(2,EvaluationRirZoneA,EvaluationRirZoneB);
                 midIdx = [21:29];
                 subTwIdx = [9:19];
