@@ -1,5 +1,5 @@
 # sz-subband-block-adaptive-filtering
-Code used for generating the results presented in the manuscript M. B. Møller, J. Martinez, and J. Østergaard, "Reduced complexity for sound zones with subband block adaptive filters and a loudspeaker line array", accepted for publication in the Journal of the Acoustical Society of America.
+Code used for generating the results presented in the manuscript M. B. Møller, J. Martinez, and J. Østergaard, "Reduced complexity for sound zones with subband block adaptive filters and a loudspeaker line array", accepted for publication in the Journal of the Acoustical Society of America: https://doi.org/10.1121/10.0025464 .
 
 Note that the code is currently being refactored, which means that some of the scripts used for running the tests are broken at the moment. The core functions implementing the filterbank and adaptive processing will not change, but the scripts used to generate the results will. This is to limit the amount of manual work required by the user to reproduce the results.
 
