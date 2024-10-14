@@ -29,7 +29,7 @@ Once these prerequisites are in place, it should be possible to run the code as 
 A couple of things to note about the C++ implementation / compilation to .mex:
  - The C++ code is writting with the assumption of C++17 due to the utilization of unique_ptr and shared_ptr.
  - At the time of writing the code, the GCC compiler included in mingw from the official supported list available for MATLAB2022b was too old to support the required C++ features.
- - A newer version of mingw (including the GCC13.1.0 compiler) was installed on the system and set up to operate with MATLAB.
+ - A newer version of mingw (including the GCC13.1.0 compiler) was installed on the system and set up to operate with MATLAB. This link might be of help to configure an unsupported version of MINGW with MATLAB: https://www.mathworks.com/matlabcentral/answers/313298-i-already-have-mingw-on-my-computer-how-do-i-configure-it-to-work-with-matlab.
  - The BOOST libraries v1_82_0 (used for the implementation of a circular buffer) are assumed and should be downloaded seperately and linked during the compilation of the .mex files.
  - The compiler flags are provided in the file C++/mexopts.xml which is called as an argument when compiling to override the default mexopts settings in MATLAB.
  - All C++ datatypes are defined at compile time. This means that seperate compilations of the .mex files must be performed for the desired controlFilterLength, numberOfLoudspeakers, numberOfMicrophones, numberOfBuffers, fftLength, hopSize, decimationFactor, numberOfSubbands, and prototypeFilterLength.
